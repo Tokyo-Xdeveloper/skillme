@@ -1,5 +1,7 @@
 import { useEffect, useCallback, type RefObject } from "react";
-import { recordEvent, saveSnapshot, type EventType } from "../lib/tracking";
+import { recordEvent, saveSnapshot, saveTaskCache, type EventType } from "../lib/tracking";
+import type { TaskItem } from "../types/app";
+import { APPS } from "../data/apps";
 
 interface PostMessageEvent {
   source: string;
@@ -37,6 +39,18 @@ export function usePostMessage(
         saveSnapshot(appId, p);
         onUpdate?.();
       }
+
+      if (data.type === "tasks" && data.payload) {
+        const p = data.payload as { tasks: TaskItem[] };
+        const app = APPS.find((a) => a.id === appId);
+        saveTaskCache({
+          appId,
+          appName: app?.name ?? appId,
+          tasks: p.tasks,
+          cachedAt: new Date().toISOString(),
+        });
+        onUpdate?.();
+      }
     },
     [appId, onUpdate],
   );
@@ -54,5 +68,13 @@ export function usePostMessage(
     }
   }, [iframeRef]);
 
-  return { requestSnapshot };
+  /** Request tasks from the iframe */
+  const requestTasks = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (iframe?.contentWindow) {
+      iframe.contentWindow.postMessage({ type: "request:tasks" }, "*");
+    }
+  }, [iframeRef]);
+
+  return { requestSnapshot, requestTasks };
 }

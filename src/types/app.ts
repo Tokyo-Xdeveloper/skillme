@@ -37,4 +37,22 @@ export interface AppSnapshot {
 export interface TrackingData {
   daily: DailyRecord[];
   snapshots: Record<string, AppSnapshot>;  // keyed by appId
+  taskCache: Record<string, AppTaskCache>; // keyed by appId
+}
+
+export interface TaskItem {
+  id: string;
+  title: string;          // expression名
+  subtitle: string;       // meaning
+  taskType: "review" | "activation";
+  reviewStage: number | null;  // 1-5, activationはnull
+  isOverdue: boolean;
+  dueDate: string | null;
+}
+
+export interface AppTaskCache {
+  appId: string;
+  appName: string;
+  tasks: TaskItem[];
+  cachedAt: string;       // ISO 8601
 }

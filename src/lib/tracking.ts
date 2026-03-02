@@ -1,4 +1,4 @@
-import type { DailyRecord, AppSnapshot, TrackingData } from "../types/app";
+import type { DailyRecord, AppSnapshot, AppTaskCache, TrackingData } from "../types/app";
 
 const STORAGE_KEY = "skillme-tracking";
 
@@ -14,12 +14,13 @@ export function loadTracking(): TrackingData {
       const data = JSON.parse(raw) as TrackingData;
       if (!data.daily) data.daily = [];
       if (!data.snapshots) data.snapshots = {};
+      if (!data.taskCache) data.taskCache = {};
       return data;
     }
   } catch {
     // ignore
   }
-  return { daily: [], snapshots: {} };
+  return { daily: [], snapshots: {}, taskCache: {} };
 }
 
 function saveTracking(data: TrackingData): void {
@@ -68,6 +69,16 @@ export function getRecentDays(days: number): DailyRecord[] {
     result.push(existing ?? { date: dk, activations: 0, reviews: 0, masteries: 0 });
   }
   return result;
+}
+
+export function saveTaskCache(cache: AppTaskCache): void {
+  const data = loadTracking();
+  data.taskCache[cache.appId] = cache;
+  saveTracking(data);
+}
+
+export function getTaskCache(): Record<string, AppTaskCache> {
+  return loadTracking().taskCache;
 }
 
 /** Compute streak (consecutive days with at least 1 activity) */
