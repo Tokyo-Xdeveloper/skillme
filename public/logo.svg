@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#1e40af"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff"/>
+      <stop offset="100%" stop-color="#bfdbfe"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded square background -->
+  <rect width="100" height="100" rx="22" fill="url(#bg)"/>
+  <!-- Upward arrow / bolt — symbolizing skill growth -->
+  <path d="M54 18L36 52h14L40 82l26-38H52L64 18z" fill="url(#bolt)" opacity=".95"/>
+  <!-- Subtle progress arc -->
+  <path d="M22 78a38 38 0 0 1 0-56" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="4" stroke-linecap="round"/>
+  <path d="M78 22a38 38 0 0 1 0 56" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="4" stroke-linecap="round"/>
+</svg>

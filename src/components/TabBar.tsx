@@ -9,6 +9,7 @@ const tabs = [
 export default function TabBar() {
   return (
     <nav className="nav-bar">
+      <img src="/logo.svg" alt="" width="26" height="26" style={{ marginRight: 8, borderRadius: 6 }} />
       <span className="nav-brand">skillme</span>
       <div className="nav-tabs">
         {tabs.map((tab) => (
