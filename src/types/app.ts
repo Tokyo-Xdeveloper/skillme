@@ -56,3 +56,16 @@ export interface AppTaskCache {
   tasks: TaskItem[];
   cachedAt: string;       // ISO 8601
 }
+
+// --- Task Grid (Daily-Tracker style) ---
+
+export interface GridTask {
+  id: string;
+  appId: string;
+  label: string;   // "New", "Review", etc.
+}
+
+export interface TaskGridData {
+  tasks: GridTask[];
+  marks: Record<string, Record<string, boolean>>; // "YYYY-MM-DD" -> taskId -> done
+}
