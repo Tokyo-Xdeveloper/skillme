@@ -29,12 +29,20 @@ export default function AppCard({ app }: AppCardProps) {
           ))}
         </div>
 
-        <Link
-          to={`/app/${app.id}`}
-          className="block w-full text-center bg-blue-600 text-white text-sm font-medium py-2.5 rounded-xl no-underline hover:bg-blue-700 transition-colors"
-        >
-          プレイ
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            to={`/app/${app.id}`}
+            className="flex-1 text-center bg-blue-600 text-white text-sm font-medium py-2.5 rounded-xl no-underline hover:bg-blue-700 transition-colors"
+          >
+            プレイ
+          </Link>
+          <Link
+            to={`/dashboard/${app.id}`}
+            className="text-center bg-gray-100 text-gray-600 text-sm font-medium py-2.5 px-4 rounded-xl no-underline hover:bg-gray-200 transition-colors"
+          >
+            Stats
+          </Link>
+        </div>
       </div>
     </div>
   );

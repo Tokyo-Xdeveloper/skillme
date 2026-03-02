@@ -1,10 +1,15 @@
+import { useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import AppIframe from "../components/AppIframe";
+import { usePostMessage } from "../hooks/usePostMessage";
 import { APPS } from "../data/apps";
 
 export default function AppPlayerPage() {
   const { appId } = useParams<{ appId: string }>();
   const app = APPS.find((a) => a.id === appId);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  const { requestSnapshot } = usePostMessage(iframeRef, appId ?? "");
 
   if (!app) {
     return (
@@ -29,11 +34,22 @@ export default function AppPlayerPage() {
         >
           ← 戻る
         </Link>
-        <span className="font-semibold text-gray-900">{app.name}</span>
+        <span className="font-semibold text-gray-900 flex-1">{app.name}</span>
+        <Link
+          to={`/dashboard/${app.id}`}
+          className="text-sm text-blue-600 hover:text-blue-700 no-underline"
+        >
+          📊 Stats
+        </Link>
       </nav>
 
       {/* iframe */}
-      <AppIframe url={app.url} title={app.name} />
+      <AppIframe
+        ref={iframeRef}
+        url={app.url}
+        title={app.name}
+        onLoad={requestSnapshot}
+      />
     </div>
   );
 }
