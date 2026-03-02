@@ -19,7 +19,7 @@ export default function StatsPage() {
   const today = now.getDate();
   const days = daysInMonth(year, month);
 
-  // Per-task stats (this month)
+  // Per-task stats (this month): days where count >= goal
   const taskStats = useMemo(() => {
     return grid.tasks.map((task) => {
       let done = 0;
@@ -27,7 +27,7 @@ export default function StatsPage() {
       for (let d = 1; d <= Math.min(today, days); d++) {
         const dk = fmtDate(year, month, d);
         total++;
-        if (grid.marks[dk]?.[task.id]) done++;
+        if ((grid.counts[dk]?.[task.id] || 0) >= task.goal) done++;
       }
       const app = APPS.find((a) => a.id === task.appId);
       return {
@@ -48,7 +48,7 @@ export default function StatsPage() {
     const rates: number[] = [];
     for (let d = 1; d <= days; d++) {
       const dk = fmtDate(year, month, d);
-      rates.push(getGridRate(dk, grid.tasks, grid.marks));
+      rates.push(getGridRate(dk, grid.tasks, grid.counts));
     }
     return rates;
   }, [grid, days, year, month]);
@@ -66,7 +66,7 @@ export default function StatsPage() {
       const ds = new Date(d);
       ds.setDate(ds.getDate() - i);
       const dk = fmtDate(ds.getFullYear(), ds.getMonth() + 1, ds.getDate());
-      const rate = getGridRate(dk, grid.tasks, grid.marks);
+      const rate = getGridRate(dk, grid.tasks, grid.counts);
       if (rate === 1 && grid.tasks.length > 0) count++;
       else if (i > 0) break;
     }
@@ -78,7 +78,7 @@ export default function StatsPage() {
     let count = 0;
     for (let d = 1; d <= Math.min(today, days); d++) {
       const dk = fmtDate(year, month, d);
-      const rate = getGridRate(dk, grid.tasks, grid.marks);
+      const rate = getGridRate(dk, grid.tasks, grid.counts);
       if (rate > 0) count++;
     }
     return count;
@@ -97,7 +97,7 @@ export default function StatsPage() {
         dd.setDate(dd.getDate() + col * 7 + row);
         if (dd > now) continue;
         const dk = fmtDate(dd.getFullYear(), dd.getMonth() + 1, dd.getDate());
-        const rate = getGridRate(dk, grid.tasks, grid.marks);
+        const rate = getGridRate(dk, grid.tasks, grid.counts);
         cells.push({ date: dk, rate, col, row });
       }
     }

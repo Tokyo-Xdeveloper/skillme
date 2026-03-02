@@ -62,10 +62,12 @@ export interface AppTaskCache {
 export interface GridTask {
   id: string;
   appId: string;
-  label: string;   // "New", "Review", etc.
+  label: string;          // "New", "Review", etc.
+  goal: number;           // daily target count
+  eventType: string;      // "task:activation" | "task:review"
 }
 
 export interface TaskGridData {
   tasks: GridTask[];
-  marks: Record<string, Record<string, boolean>>; // "YYYY-MM-DD" -> taskId -> done
+  counts: Record<string, Record<string, number>>; // "YYYY-MM-DD" -> taskId -> count
 }

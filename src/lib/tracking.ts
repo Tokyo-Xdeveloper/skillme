@@ -85,23 +85,46 @@ export function getTaskCache(): Record<string, AppTaskCache> {
 
 const GRID_KEY = "skillme-taskgrid";
 
+function migrateGrid(data: TaskGridData): TaskGridData {
+  // Migrate old boolean marks → counts, old tasks without goal/eventType
+  for (const task of data.tasks) {
+    if (!task.goal) task.goal = task.label === "Review" ? 5 : 3;
+    if (!task.eventType) task.eventType = task.label === "Review" ? "task:review" : "task:activation";
+  }
+  if (!data.counts) {
+    // Migrate from old `marks` (boolean) to `counts`
+    const old = (data as Record<string, unknown>).marks as Record<string, Record<string, boolean>> | undefined;
+    data.counts = {};
+    if (old) {
+      for (const [date, dayMarks] of Object.entries(old)) {
+        data.counts[date] = {};
+        for (const [taskId, val] of Object.entries(dayMarks)) {
+          if (val) data.counts[date][taskId] = 1;
+        }
+      }
+    }
+    delete (data as Record<string, unknown>).marks;
+  }
+  return data;
+}
+
 export function loadTaskGrid(): TaskGridData {
   try {
     const raw = localStorage.getItem(GRID_KEY);
     if (raw) {
       const data = JSON.parse(raw) as TaskGridData;
       if (!data.tasks) data.tasks = [];
-      if (!data.marks) data.marks = {};
-      return data;
+      if (!data.counts) data.counts = {};
+      return migrateGrid(data);
     }
   } catch { /* ignore */ }
-  return { tasks: getDefaultTasks(), marks: {} };
+  return { tasks: getDefaultTasks(), counts: {} };
 }
 
 function getDefaultTasks(): GridTask[] {
   return [
-    { id: "default-new", appId: "vocab-master", label: "New" },
-    { id: "default-review", appId: "vocab-master", label: "Review" },
+    { id: "default-new", appId: "vocab-master", label: "New", goal: 3, eventType: "task:activation" },
+    { id: "default-review", appId: "vocab-master", label: "Review", goal: 5, eventType: "task:review" },
   ];
 }
 
@@ -109,9 +132,9 @@ export function saveTaskGrid(data: TaskGridData): void {
   localStorage.setItem(GRID_KEY, JSON.stringify(data));
 }
 
-export function addGridTask(appId: string, label: string): TaskGridData {
+export function addGridTask(appId: string, label: string, goal: number, eventType: string): TaskGridData {
   const data = loadTaskGrid();
-  data.tasks.push({ id: `task-${Date.now()}`, appId, label });
+  data.tasks.push({ id: `task-${Date.now()}`, appId, label, goal, eventType });
   saveTaskGrid(data);
   return data;
 }
@@ -119,26 +142,52 @@ export function addGridTask(appId: string, label: string): TaskGridData {
 export function removeGridTask(taskId: string): TaskGridData {
   const data = loadTaskGrid();
   data.tasks = data.tasks.filter((t) => t.id !== taskId);
-  // clean marks
-  for (const date of Object.keys(data.marks)) {
-    delete data.marks[date][taskId];
+  for (const date of Object.keys(data.counts)) {
+    delete data.counts[date][taskId];
   }
   saveTaskGrid(data);
   return data;
 }
 
-export function toggleGridMark(date: string, taskId: string): TaskGridData {
+export function updateGridTaskGoal(taskId: string, goal: number): TaskGridData {
   const data = loadTaskGrid();
-  if (!data.marks[date]) data.marks[date] = {};
-  data.marks[date][taskId] = !data.marks[date][taskId];
+  const task = data.tasks.find((t) => t.id === taskId);
+  if (task) task.goal = goal;
   saveTaskGrid(data);
   return data;
 }
 
-export function getGridRate(date: string, tasks: GridTask[], marks: Record<string, Record<string, boolean>>): number {
+/** Increment count for matching tasks when an app event fires */
+export function incrementGridCount(appId: string, eventType: EventType): TaskGridData {
+  const data = loadTaskGrid();
+  const d = today();
+  if (!data.counts[d]) data.counts[d] = {};
+  // task:mastery also counts toward "task:review" tasks
+  const matchTypes = eventType === "task:mastery" ? ["task:review", "task:mastery"] : [eventType];
+  for (const task of data.tasks) {
+    if (task.appId === appId && matchTypes.includes(task.eventType)) {
+      data.counts[d][task.id] = (data.counts[d][task.id] || 0) + 1;
+    }
+  }
+  saveTaskGrid(data);
+  return data;
+}
+
+/** Manual +1 / -1 on a cell */
+export function adjustGridCount(date: string, taskId: string, delta: number): TaskGridData {
+  const data = loadTaskGrid();
+  if (!data.counts[date]) data.counts[date] = {};
+  const cur = data.counts[date][taskId] || 0;
+  data.counts[date][taskId] = Math.max(0, cur + delta);
+  saveTaskGrid(data);
+  return data;
+}
+
+/** Get the completion rate for a day (tasks where count >= goal / total tasks) */
+export function getGridRate(date: string, tasks: GridTask[], counts: Record<string, Record<string, number>>): number {
   if (tasks.length === 0) return 0;
-  const dayMarks = marks[date] || {};
-  const done = tasks.filter((t) => dayMarks[t.id]).length;
+  const dayCounts = counts[date] || {};
+  const done = tasks.filter((t) => (dayCounts[t.id] || 0) >= t.goal).length;
   return done / tasks.length;
 }
 

@@ -303,12 +303,39 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
   animation: pop .2s cubic-bezier(.175,.885,.32,1.275);
 }
-.grid-cell.m-done { color: var(--mS); }
+.grid-cell.m-met {
+  background: rgba(34,197,94,.15) !important;
+  color: #16a34a;
+}
+.grid-cell.m-partial {
+  color: var(--accent);
+}
 @keyframes pop {
   0% { transform: scale(0) rotate(-10deg); opacity: 0 }
   100% { transform: scale(1); opacity: 1 }
+}
+
+/* Goal badge */
+.grid-goal-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text4);
+  background: var(--accentLight);
+  padding: 1px 5px;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all .15s;
+}
+.grid-goal-badge:hover {
+  background: var(--accent);
+  color: white;
 }
 
 /* Summary row */
@@ -440,3 +467,28 @@ body {
   color: white;
 }
 .add-modal-actions .btn-add:hover { background: var(--accent2); }
+.add-modal-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin-bottom: 4px;
+}
+.add-modal-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px;
+  font-weight: 700;
+  background: var(--surfaceSolid);
+  color: var(--text);
+  outline: none;
+  margin-bottom: 12px;
+  transition: border-color .2s;
+  text-align: center;
+}
+.add-modal-input:focus { border-color: var(--accent); }

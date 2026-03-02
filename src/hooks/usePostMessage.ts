@@ -1,5 +1,5 @@
 import { useEffect, useCallback, type RefObject } from "react";
-import { recordEvent, saveSnapshot, saveTaskCache, type EventType } from "../lib/tracking";
+import { recordEvent, saveSnapshot, saveTaskCache, incrementGridCount, type EventType } from "../lib/tracking";
 import type { TaskItem } from "../types/app";
 import { APPS } from "../data/apps";
 
@@ -25,6 +25,7 @@ export function usePostMessage(
         data.type === "task:mastery"
       ) {
         recordEvent(data.type as EventType);
+        incrementGridCount(appId, data.type as EventType);
         onUpdate?.();
       }
 
@@ -60,7 +61,6 @@ export function usePostMessage(
     return () => window.removeEventListener("message", handleMessage);
   }, [handleMessage]);
 
-  /** Request a snapshot from the iframe */
   const requestSnapshot = useCallback(() => {
     const iframe = iframeRef.current;
     if (iframe?.contentWindow) {
@@ -68,7 +68,6 @@ export function usePostMessage(
     }
   }, [iframeRef]);
 
-  /** Request tasks from the iframe */
   const requestTasks = useCallback(() => {
     const iframe = iframeRef.current;
     if (iframe?.contentWindow) {
