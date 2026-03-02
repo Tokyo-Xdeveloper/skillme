@@ -9,4 +9,12 @@ export const APPS: AppDefinition[] = [
     icon: "",
     tags: ["英語", "ボキャブラリー"],
   },
+  {
+    id: "range-master",
+    name: "Poker Range Master",
+    description: "ポーカーのハンドレンジをスペースドリピティションで習得",
+    url: "https://hiroaki-sato1117.github.io/range-master/",
+    icon: "",
+    tags: ["ポーカー", "GTO"],
+  },
 ];

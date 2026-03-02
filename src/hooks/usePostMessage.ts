@@ -17,7 +17,8 @@ export function usePostMessage(
   const handleMessage = useCallback(
     (ev: MessageEvent) => {
       const data = ev.data as PostMessageEvent | undefined;
-      if (!data || data.source !== "english-expression") return;
+      const knownSources = ["english-expression", "range-master"];
+      if (!data || !knownSources.includes(data.source)) return;
 
       if (
         data.type === "task:activation" ||

@@ -1,7 +1,6 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import {
   loadTaskGrid,
-  adjustGridCount,
   addGridTask,
   removeGridTask,
   updateGridTaskGoal,
@@ -73,17 +72,7 @@ export default function TasksPage() {
     return () => clearInterval(iv);
   }, []);
 
-  const handleClick = useCallback((date: string, taskId: string) => {
-    setGrid(adjustGridCount(date, taskId, 1));
-  }, []);
-
-  const handleRightClick = useCallback(
-    (e: React.MouseEvent, date: string, taskId: string) => {
-      e.preventDefault();
-      setGrid(adjustGridCount(date, taskId, -1));
-    },
-    [],
-  );
+  // Cells are read-only — counts auto-sync from app events
 
   const handleAdd = useCallback(() => {
     if (!addApp) return;
@@ -204,11 +193,7 @@ export default function TasksPage() {
                       return (
                         <td
                           key={d}
-                          className={`grid-cell ${isT ? "today-col" : ""} ${met ? "m-met" : count > 0 ? "m-partial" : ""}`}
-                          onClick={() => handleClick(dk, task.id)}
-                          onContextMenu={(e) =>
-                            handleRightClick(e, dk, task.id)
-                          }
+                          className={`grid-cell readonly ${isT ? "today-col" : ""} ${met ? "m-met" : count > 0 ? "m-partial" : ""}`}
                         >
                           {count > 0 && (
                             <span className="mark">{count}</span>
@@ -278,7 +263,7 @@ export default function TasksPage() {
           textAlign: "center",
         }}
       >
-        Click: +1 · Right-click: -1 · Goal badge: edit goal
+        Goal badge: edit goal · Counts auto-sync from apps
       </div>
 
       {/* Add modal */}
@@ -493,7 +478,7 @@ function ProgressChart({ rates, today }: { rates: number[]; today: number }) {
         <text key={label} x={x} y={H - 3} textAnchor="middle" fill="var(--text4)" fontFamily="'JetBrains Mono', monospace" fontSize="7">{label}</text>
       ))}
       <text x={pad.l} y={gy(1) - 3} textAnchor="start" fill="var(--text4)" fontFamily="'JetBrains Mono', monospace" fontSize="7">100%</text>
-      <text x={pad.l} y={gy(0) - 3} textAnchor="start" fill="var(--text4)" fontFamily="'JetBrains Mono', monospace" fontSize="7">0%</text>
+      <text x={pad.l} y={gy(0) + 8} textAnchor="start" fill="var(--text4)" fontFamily="'JetBrains Mono', monospace" fontSize="7">0%</text>
     </svg>
   );
 }
