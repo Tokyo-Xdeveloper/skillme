@@ -1,7 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { loadTaskGrid, getGridRate, getGoalForDate } from "../lib/tracking";
 import { useCountUp } from "../hooks/useCountUp";
 import { APPS } from "../data/apps";
+import { getGeminiKey } from "../components/TabBar";
 import type { GridTask } from "../types/app";
 
 function fmtDate(y: number, m: number, d: number) {
@@ -139,6 +140,18 @@ export default function StatsPage() {
           bg="rgba(0,0,0,.03)"
         />
       </div>
+
+      {/* AI Reflection */}
+      <AiReflection
+        grid={grid}
+        taskStats={taskStats}
+        overallRate={overallRate}
+        streak={streak}
+        year={year}
+        month={month}
+        today={today}
+        days={days}
+      />
 
       {/* Task ranking */}
       <div className="grid-card" style={{ padding: 0 }}>
@@ -390,5 +403,184 @@ function Heatmap({ cells, weeks }: { cells: { date: string; rate: number; col: n
         <span>100%</span>
       </div>
     </>
+  );
+}
+
+// === AI Reflection ===
+
+const AI_CACHE_KEY = "skillme_ai_cache";
+
+function getSlot(): string {
+  const h = new Date().getHours();
+  if (h >= 22) return "22";
+  if (h >= 18) return "18";
+  if (h >= 12) return "12";
+  if (h >= 7) return "7";
+  return "22";
+}
+
+interface AiCache { date: string; slot: string; comment: string }
+
+function getAiCache(): AiCache | null {
+  try { return JSON.parse(localStorage.getItem(AI_CACHE_KEY) || "null"); } catch { return null; }
+}
+function setAiCache(obj: AiCache) { localStorage.setItem(AI_CACHE_KEY, JSON.stringify(obj)); }
+
+async function callGemini(prompt: string): Promise<string> {
+  const key = getGeminiKey();
+  if (!key) throw new Error("no key");
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + key;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+  });
+  if (!res.ok) throw new Error("API " + res.status);
+  const json = await res.json();
+  return json.candidates?.[0]?.content?.parts?.[0]?.text || "";
+}
+
+interface AiReflectionProps {
+  grid: { tasks: GridTask[]; counts: Record<string, Record<string, number>> };
+  taskStats: { task: GridTask; appName: string; done: number; total: number; rate: number }[];
+  overallRate: number;
+  streak: number;
+  year: number;
+  month: number;
+  today: number;
+  days: number;
+}
+
+function AiReflection({ grid, taskStats, overallRate, streak, year, month, today, days }: AiReflectionProps) {
+  const [comment, setComment] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [meta, setMeta] = useState("");
+
+  const buildPrompt = useCallback(() => {
+    const slot = getSlot();
+    const monthRate = Math.round(overallRate * 100);
+
+    // Per-task monthly & weekly rates
+    const wStart = Math.max(1, today - 6);
+    const taskMonth: string[] = [];
+    const taskWeek: string[] = [];
+
+    grid.tasks.forEach((task) => {
+      const app = APPS.find((a) => a.id === task.appId);
+      const name = (app?.name?.slice(0, 10) ?? task.appId) + " " + task.label;
+      let mp = 0, ms = 0, wp = 0, ws = 0;
+      for (let d = 1; d <= today; d++) {
+        const dk = fmtDate(year, month, d);
+        const g = getGoalForDate(task, dk);
+        if (g <= 0) continue;
+        const count = grid.counts[dk]?.[task.id] || 0;
+        const met = count >= g ? 1 : 0;
+        mp++; ms += met;
+        if (d >= wStart) { wp++; ws += met; }
+      }
+      taskMonth.push(name + ": " + (mp > 0 ? Math.round((ms / mp) * 100) : 0) + "%");
+      taskWeek.push(name + ": " + (wp > 0 ? Math.round((ws / wp) * 100) : 0) + "%");
+    });
+
+    // Weekly overall
+    let wPts = 0, wDone = 0;
+    for (let d = wStart; d <= today; d++) {
+      const dk = fmtDate(year, month, d);
+      grid.tasks.forEach((task) => {
+        const g = getGoalForDate(task, dk);
+        if (g <= 0) return;
+        wPts++;
+        if ((grid.counts[dk]?.[task.id] || 0) >= g) wDone++;
+      });
+    }
+    const weekRate = wPts > 0 ? Math.round((wDone / wPts) * 100) : 0;
+
+    // Today stats
+    const todayKey = fmtDate(year, month, today);
+    let todayTotal = 0, todayDone = 0;
+    grid.tasks.forEach((task) => {
+      const g = getGoalForDate(task, todayKey);
+      if (g <= 0) return;
+      todayTotal++;
+      if ((grid.counts[todayKey]?.[task.id] || 0) >= g) todayDone++;
+    });
+    const todayPct = todayTotal > 0 ? Math.round((todayDone / todayTotal) * 100) : 0;
+
+    const toneMap: Record<string, string> = {
+      "7": "朝の時間帯です。今月の振り返りから始め、今週の傾向に触れ、今日の目標や激励で締めてください。",
+      "12": "お昼の時間帯です。今月の全体感から今週の流れ、そして午前の振り返りと午後への切り替えの順で話してください。",
+      "18": "夕方の時間帯です。今月の進捗から今週のハイライト、今日の振り返りの順でコメントしてください。",
+      "22": "夜の時間帯です。今月の総括から今週の成果、今日の1日の締めくくりと明日への期待の順で話してください。",
+    };
+
+    let prompt = "あなたはスキル学習トラッキングアプリのAIコーチです。ユーザーの進捗データを見て、振り返りコメントを日本語で書いてください。\n";
+    prompt += toneMap[slot] + "\n\n";
+    prompt += "【今月のデータ】\n";
+    prompt += `月間達成率: ${monthRate}% (${today}日目/${days}日)\n`;
+    prompt += `現在のストリーク: ${streak}日\n`;
+    prompt += `タスク別: ${taskMonth.join(", ")}\n\n`;
+    prompt += "【今週のデータ (直近7日間)】\n";
+    prompt += `週間達成率: ${weekRate}%\n`;
+    prompt += `タスク別: ${taskWeek.join(", ")}\n\n`;
+    prompt += "【今日のデータ】\n";
+    prompt += `${month}/${today}: ${todayDone}/${todayTotal}完了 (${todayPct}%)\n`;
+    prompt += `残り: ${todayTotal - todayDone}タスク\n\n`;
+    prompt += "今月→今週→今日の順番で自然に流れるように、4〜5文で書いてください。セクション分けや見出しは不要です。絵文字は使わず、温かみのある自然な日本語で。";
+    return prompt;
+  }, [grid, taskStats, overallRate, streak, year, month, today, days]);
+
+  useEffect(() => {
+    const key = getGeminiKey();
+    if (!key) {
+      setLoading(false);
+      setError("no key");
+      return;
+    }
+
+    const slot = getSlot();
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const cache = getAiCache();
+    if (cache && cache.date === todayStr && cache.slot === slot) {
+      setComment(cache.comment);
+      setLoading(false);
+      setMeta("Updated at " + slot + ":00");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    const prompt = buildPrompt();
+    callGemini(prompt)
+      .then((text) => {
+        setComment(text);
+        setLoading(false);
+        setMeta("Updated at " + slot + ":00");
+        setAiCache({ date: todayStr, slot, comment: text });
+      })
+      .catch((e) => {
+        setLoading(false);
+        setError(e.message);
+      });
+  }, [buildPrompt]);
+
+  return (
+    <div className="grid-card ai-card" style={{ padding: 18 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text2)", marginBottom: 10 }}>
+        AI Reflection
+      </div>
+      {error === "no key" ? (
+        <div className="ai-setup">
+          AI振り返りを表示するには、ナビバーの <strong>KEY</strong> ボタンからAPI Keyを設定してください
+        </div>
+      ) : error ? (
+        <div style={{ fontSize: 13, color: "var(--red)" }}>Failed to load ({error})</div>
+      ) : (
+        <div className={`ai-body${loading ? " ai-loading" : ""}`}>
+          {loading ? "Loading..." : comment}
+        </div>
+      )}
+      {meta && !error && <div className="ai-meta">{meta}</div>}
+    </div>
   );
 }
