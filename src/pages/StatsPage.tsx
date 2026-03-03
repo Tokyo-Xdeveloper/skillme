@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { loadTaskGrid, getGridRate, getGoalForDate } from "../lib/tracking";
 import { useCountUp } from "../hooks/useCountUp";
+import { useInView } from "../hooks/useInView";
 import { APPS } from "../data/apps";
 import { getGeminiKey } from "../components/TabBar";
 import type { GridTask } from "../types/app";
@@ -108,6 +109,10 @@ export default function StatsPage() {
     return { cells, weeks };
   }, [grid, now]);
 
+  const [taskRateRef, taskRateVisible] = useInView<HTMLDivElement>();
+  const [chartRef, chartVisible] = useInView<HTMLDivElement>();
+  const [heatmapRef, heatmapVisible] = useInView<HTMLDivElement>();
+
   return (
     <div className="p-5 max-w-[900px] mx-auto space-y-5">
       {/* Summary cards */}
@@ -172,13 +177,13 @@ export default function StatsPage() {
       />
 
       {/* Task ranking */}
-      <div className="grid-card" style={{ padding: 0 }}>
+      <div ref={taskRateRef} className={`grid-card scroll-reveal${taskRateVisible ? " in-view" : ""}`} style={{ padding: 0 }}>
         <div style={{ padding: "16px 18px 8px", fontSize: 13, fontWeight: 700, color: "var(--text2)" }}>
           Task Completion Rate
         </div>
         {ranked.length > 0 ? (
           <div>
-            {ranked.map(({ task, appName, done, total, rate }) => (
+            {ranked.map(({ task, appName, done, total, rate }, i) => (
               <TaskRateRow
                 key={task.id}
                 task={task}
@@ -186,6 +191,8 @@ export default function StatsPage() {
                 done={done}
                 total={total}
                 rate={rate}
+                visible={taskRateVisible}
+                index={i}
               />
             ))}
           </div>
@@ -197,17 +204,17 @@ export default function StatsPage() {
       </div>
 
       {/* Monthly progress chart */}
-      <div className="grid-card" style={{ overflow: "hidden" }}>
+      <div ref={chartRef} className={`grid-card scroll-reveal${chartVisible ? " in-view" : ""}`} style={{ overflow: "hidden" }}>
         <div style={{ padding: "16px 18px 0", fontSize: 13, fontWeight: 700, color: "var(--text2)" }}>
           Daily Completion Rate — {month}月
         </div>
         <div style={{ padding: "8px 18px 18px" }}>
-          <MonthChart rates={dailyRates} today={today} />
+          <MonthChart rates={dailyRates} today={today} visible={chartVisible} />
         </div>
       </div>
 
       {/* Heatmap */}
-      <div className="grid-card" style={{ padding: 18 }}>
+      <div ref={heatmapRef} className={`grid-card scroll-reveal${heatmapVisible ? " in-view" : ""}`} style={{ padding: 18 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text2)", marginBottom: 12 }}>
           Activity Heatmap
         </div>
@@ -298,10 +305,23 @@ function FlameIcon({ streak }: { streak: number }) {
   );
 }
 
-function TaskRateRow({ task, appName, done, total, rate }: { task: GridTask; appName: string; done: number; total: number; rate: number }) {
+function TaskRateRow({ task, appName, done, total, rate, visible, index }: { task: GridTask; appName: string; done: number; total: number; rate: number; visible: boolean; index: number }) {
   const pct = Math.round(rate * 100);
-  const animPct = useCountUp(pct);
+  const animPct = useCountUp(pct, 800, visible);
   const barColor = pct >= 80 ? "var(--green)" : pct >= 50 ? "var(--accent)" : pct >= 20 ? "var(--orange)" : "var(--red)";
+  const barRef = useRef<HTMLDivElement>(null);
+  const barDone = useRef(false);
+
+  useEffect(() => {
+    if (!visible || barDone.current) return;
+    const el = barRef.current;
+    if (!el) return;
+    barDone.current = true;
+    setTimeout(() => {
+      el.style.transition = "width 0.6s cubic-bezier(.34,1.56,.64,1)";
+      el.style.width = `${pct}%`;
+    }, index * 80);
+  }, [visible, pct, index]);
 
   return (
     <div
@@ -324,12 +344,12 @@ function TaskRateRow({ task, appName, done, total, rate }: { task: GridTask; app
       {/* Bar */}
       <div style={{ flex: 1, height: 8, background: "var(--border)", borderRadius: 4, overflow: "hidden" }}>
         <div
+          ref={barRef}
           style={{
             height: "100%",
-            width: `${pct}%`,
+            width: 0,
             background: barColor,
             borderRadius: 4,
-            transition: "width .4s ease",
           }}
         />
       </div>
@@ -347,12 +367,12 @@ function TaskRateRow({ task, appName, done, total, rate }: { task: GridTask; app
   );
 }
 
-function MonthChart({ rates, today }: { rates: number[]; today: number }) {
+function MonthChart({ rates, today, visible }: { rates: number[]; today: number; visible: boolean }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const animated = useRef(false);
 
   useEffect(() => {
-    if (animated.current) return;
+    if (!visible || animated.current) return;
     const svg = svgRef.current;
     if (!svg) return;
     animated.current = true;
@@ -367,7 +387,7 @@ function MonthChart({ rates, today }: { rates: number[]; today: number }) {
         });
       });
     });
-  });
+  }, [visible]);
 
   const W = 600;
   const H = 120;

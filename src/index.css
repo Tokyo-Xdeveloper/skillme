@@ -703,3 +703,14 @@ body {
   animation: flameFlicker 1.2s ease-in-out infinite;
   transform-origin: center bottom;
 }
+
+/* === Scroll reveal === */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity .6s ease-out, transform .6s ease-out;
+}
+.scroll-reveal.in-view {
+  opacity: 1;
+  transform: none;
+}
