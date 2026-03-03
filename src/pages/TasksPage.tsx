@@ -4,8 +4,10 @@ import {
   addGridTask,
   removeGridTask,
   updateGridTaskGoal,
+  reorderGridTasks,
   getGridRate,
 } from "../lib/tracking";
+import { useCountUp } from "../hooks/useCountUp";
 import { APPS } from "../data/apps";
 import type { TaskGridData } from "../types/app";
 
@@ -31,6 +33,11 @@ export default function TasksPage() {
   const [addGoal, setAddGoal] = useState(TASK_PRESETS[0].defaultGoal);
   const [editGoalId, setEditGoalId] = useState<string | null>(null);
   const [editGoalVal, setEditGoalVal] = useState(0);
+
+  // Drag & drop state
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dropIdx, setDropIdx] = useState<number | null>(null);
+  const [dropPos, setDropPos] = useState<"above" | "below" | null>(null);
 
   const now = new Date();
   const year = now.getFullYear();
@@ -91,6 +98,54 @@ export default function TasksPage() {
     }
     setEditGoalId(null);
   }, [editGoalId, editGoalVal]);
+
+  // Drag & drop handlers
+  const handleDragStart = useCallback((e: React.DragEvent, idx: number) => {
+    setDragIdx(idx);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(idx));
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    const pos = e.clientY < midY ? "above" : "below";
+    setDropIdx(idx);
+    setDropPos(pos);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDropIdx(null);
+    setDropPos(null);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, toIdx: number) => {
+    e.preventDefault();
+    const fromIdx = dragIdx;
+    setDragIdx(null);
+    setDropIdx(null);
+    setDropPos(null);
+    if (fromIdx === null || fromIdx === toIdx) return;
+    // Compute actual target: if dropping below, shift index when source is above target
+    let targetIdx = toIdx;
+    if (dropPos === "below") {
+      targetIdx = fromIdx < toIdx ? toIdx : toIdx + 1;
+    } else {
+      targetIdx = fromIdx < toIdx ? toIdx - 1 : toIdx;
+    }
+    if (targetIdx < 0) targetIdx = 0;
+    if (fromIdx !== targetIdx) {
+      setGrid(reorderGridTasks(fromIdx, targetIdx));
+    }
+  }, [dragIdx, dropPos]);
+
+  const handleDragEnd = useCallback(() => {
+    setDragIdx(null);
+    setDropIdx(null);
+    setDropPos(null);
+  }, []);
 
   // today stats
   const todayKey = fmtDate(year, month, today);
@@ -158,9 +213,25 @@ export default function TasksPage() {
             <tbody>
               {grid.tasks.map((task, idx) => {
                 const app = APPS.find((a) => a.id === task.appId);
+                const isDragging = dragIdx === idx;
+                const isDropAbove = dropIdx === idx && dropPos === "above";
+                const isDropBelow = dropIdx === idx && dropPos === "below";
                 return (
-                  <tr key={task.id}>
-                    <td className="grid-num">{idx + 1}</td>
+                  <tr
+                    key={task.id}
+                    className={`${isDragging ? "dragging" : ""} ${isDropAbove ? "drop-above" : ""} ${isDropBelow ? "drop-below" : ""}`}
+                    onDragOver={(e) => handleDragOver(e, idx)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, idx)}
+                  >
+                    <td
+                      className="grid-num"
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, idx)}
+                      onDragEnd={handleDragEnd}
+                    >
+                      {idx + 1}
+                    </td>
                     <td className="grid-task-name">
                       <div className="grid-task-inner">
                         <span className="grid-task-app">
@@ -373,10 +444,14 @@ function TodayFlash({
   day: number;
   year: number;
 }) {
+  const animPct = useCountUp(pct);
+  const animDone = useCountUp(done);
+  const animTotal = useCountUp(total);
+
   const r = 20;
   const circ = 2 * Math.PI * r;
-  const off = circ - (circ * pct) / 100;
-  const rem = total - done;
+  const off = circ - (circ * animPct) / 100;
+  const rem = animTotal - animDone;
 
   return (
     <div
@@ -417,7 +492,7 @@ function TodayFlash({
               color: "var(--text)",
             }}
           >
-            {pct}%
+            {animPct}%
           </span>
         </div>
       </div>
@@ -426,7 +501,7 @@ function TodayFlash({
           {month}/{day}, {year} — Today
         </div>
         <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 2 }}>
-          {done}/{total} goals met · {rem} remaining
+          {animDone}/{animTotal} goals met · {rem} remaining
         </div>
       </div>
     </div>
@@ -460,6 +535,20 @@ function ProgressChart({ rates, today }: { rates: number[]; today: number }) {
   }
   const todayX = gx(today - 1);
 
+  // Stroke animation: measure path length and animate stroke-dashoffset
+  const pathRef = useRef<SVGPathElement>(null);
+  const [pathLen, setPathLen] = useState(0);
+  const [animate, setAnimate] = useState(false);
+
+  useEffect(() => {
+    if (pathRef.current) {
+      const len = pathRef.current.getTotalLength();
+      setPathLen(len);
+      // Force reflow to apply initial dashoffset, then trigger animation
+      requestAnimationFrame(() => setAnimate(true));
+    }
+  }, [rates]);
+
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }}>
       <defs>
@@ -471,8 +560,27 @@ function ProgressChart({ rates, today }: { rates: number[]; today: number }) {
       {gridLines.map((y, i) => (
         <line key={i} x1={pad.l} y1={y} x2={W - pad.r} y2={y} stroke="var(--border2)" strokeWidth=".7" strokeDasharray="4,4" />
       ))}
-      <path d={area} fill="url(#areaGrad)" />
-      <path d={path} fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" />
+      <path
+        d={area}
+        fill="url(#areaGrad)"
+        style={{
+          opacity: animate ? 1 : 0,
+          transition: "opacity 0.4s ease 0.8s",
+        }}
+      />
+      <path
+        ref={pathRef}
+        d={path}
+        fill="none"
+        stroke="var(--accent)"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        style={pathLen > 0 ? {
+          strokeDasharray: pathLen,
+          strokeDashoffset: animate ? 0 : pathLen,
+          transition: "stroke-dashoffset 1.2s ease-out",
+        } : undefined}
+      />
       <line x1={todayX} y1={pad.t} x2={todayX} y2={pad.t + ch} stroke="var(--accent)" strokeWidth="1" strokeDasharray="3,3" opacity=".5" />
       {xLabels.map(({ x, label }) => (
         <text key={label} x={x} y={H - 3} textAnchor="middle" fill="var(--text4)" fontFamily="'JetBrains Mono', monospace" fontSize="7">{label}</text>

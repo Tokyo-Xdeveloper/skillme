@@ -493,3 +493,19 @@ body {
   text-align: center;
 }
 .add-modal-input:focus { border-color: var(--accent); }
+
+/* === Drag & Drop === */
+.grid-num[draggable="true"] { cursor: grab; }
+.grid-num[draggable="true"]:active { cursor: grabbing; }
+.grid-body tr.dragging { opacity: 0.4; }
+.grid-body tr.drop-above { box-shadow: inset 0 2px 0 0 var(--accent); }
+.grid-body tr.drop-below { box-shadow: inset 0 -2px 0 0 var(--accent); }
+
+/* === Bar chart grow animation === */
+.month-bar {
+  animation: barGrow 0.6s ease-out forwards;
+}
+@keyframes barGrow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}

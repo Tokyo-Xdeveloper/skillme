@@ -173,6 +173,15 @@ export function incrementGridCount(appId: string, eventType: EventType): TaskGri
   return data;
 }
 
+/** Reorder tasks by moving from one index to another */
+export function reorderGridTasks(fromIndex: number, toIndex: number): TaskGridData {
+  const data = loadTaskGrid();
+  const [moved] = data.tasks.splice(fromIndex, 1);
+  data.tasks.splice(toIndex, 0, moved);
+  saveTaskGrid(data);
+  return data;
+}
+
 /** Manual +1 / -1 on a cell */
 export function adjustGridCount(date: string, taskId: string, delta: number): TaskGridData {
   const data = loadTaskGrid();

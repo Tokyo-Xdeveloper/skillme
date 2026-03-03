@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { loadTaskGrid, getGridRate } from "../lib/tracking";
+import { useCountUp } from "../hooks/useCountUp";
 import { APPS } from "../data/apps";
 import type { GridTask } from "../types/app";
 
@@ -110,25 +111,28 @@ export default function StatsPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard
           label="Overall Rate"
-          value={`${Math.round(overallRate * 100)}%`}
+          value={Math.round(overallRate * 100)}
+          suffix="%"
           color="var(--accent)"
           bg="rgba(37,99,235,.06)"
         />
         <StatCard
           label="Streak"
-          value={`${streak}d`}
+          value={streak}
+          suffix="d"
           color="var(--orange)"
           bg="var(--orangeBg)"
         />
         <StatCard
           label="Active Days"
-          value={`${activeDays}/${Math.min(today, days)}`}
+          value={activeDays}
+          suffix={`/${Math.min(today, days)}`}
           color="var(--green)"
           bg="var(--greenBg)"
         />
         <StatCard
           label="Tasks"
-          value={String(grid.tasks.length)}
+          value={grid.tasks.length}
           color="var(--text)"
           bg="rgba(0,0,0,.03)"
         />
@@ -182,7 +186,8 @@ export default function StatsPage() {
 
 // === Sub-components ===
 
-function StatCard({ label, value, color, bg }: { label: string; value: string; color: string; bg: string }) {
+function StatCard({ label, value, suffix, color, bg }: { label: string; value: number; suffix?: string; color: string; bg: string }) {
+  const animVal = useCountUp(value);
   return (
     <div
       className="grid-card"
@@ -192,7 +197,7 @@ function StatCard({ label, value, color, bg }: { label: string; value: string; c
         {label}
       </div>
       <div style={{ fontSize: 26, fontWeight: 800, color, fontFamily: "'JetBrains Mono', monospace" }}>
-        {value}
+        {animVal}{suffix ?? ""}
       </div>
     </div>
   );
@@ -200,6 +205,7 @@ function StatCard({ label, value, color, bg }: { label: string; value: string; c
 
 function TaskRateRow({ task, appName, done, total, rate }: { task: GridTask; appName: string; done: number; total: number; rate: number }) {
   const pct = Math.round(rate * 100);
+  const animPct = useCountUp(pct);
   const barColor = pct >= 80 ? "var(--green)" : pct >= 50 ? "var(--accent)" : pct >= 20 ? "var(--orange)" : "var(--red)";
 
   return (
@@ -235,7 +241,7 @@ function TaskRateRow({ task, appName, done, total, rate }: { task: GridTask; app
 
       {/* Percentage */}
       <div style={{ fontSize: 13, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: barColor, minWidth: 44, textAlign: "right" }}>
-        {pct}%
+        {animPct}%
       </div>
 
       {/* Count */}
@@ -254,7 +260,6 @@ function MonthChart({ rates, today }: { rates: number[]; today: number }) {
   const ch = H - pad.t - pad.b;
   const n = rates.length;
 
-  const gx = (d: number) => pad.l + (cw * d) / (n - 1 || 1);
   const gy = (v: number) => pad.t + ch - ch * v;
 
   // bar chart
@@ -284,6 +289,11 @@ function MonthChart({ rates, today }: { rates: number[]; today: number }) {
               rx={1.5}
               fill={isT ? "var(--accent)" : isPast ? "var(--green)" : "var(--border)"}
               opacity={isPast ? (r > 0 ? 0.7 : 0.15) : 0.1}
+              className="month-bar"
+              style={{
+                transformOrigin: `${x + w / 2}px ${gy(0)}px`,
+                animationDelay: `${d * 20}ms`,
+              }}
             />
             {/* X label */}
             {(d % 3 === 0 || d === n - 1) && (
