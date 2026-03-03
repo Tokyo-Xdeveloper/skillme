@@ -12,7 +12,7 @@ export default function AppCard({ app }: AppCardProps) {
       <div className="h-40 bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center overflow-hidden">
         {app.thumbnail ? (
           <img
-            src={app.thumbnail}
+            src={import.meta.env.BASE_URL + app.thumbnail}
             alt={app.name}
             className="w-full h-full object-cover object-top"
           />

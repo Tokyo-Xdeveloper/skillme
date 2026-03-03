@@ -629,27 +629,30 @@ function ProgressChart({ rates, today }: { rates: number[]; today: number }) {
   }
   const todayX = gx(today - 1);
 
-  // Stroke animation: measure path length and animate stroke-dashoffset
+  // Stroke animation: direct DOM manipulation to avoid state/cleanup race
   const pathRef = useRef<SVGPathElement>(null);
-  const [pathLen, setPathLen] = useState(0);
-  const [drawn, setDrawn] = useState(false);
-  const mounted = useRef(false);
+  const areaRef = useRef<SVGPathElement>(null);
+  const animated = useRef(false);
 
   useEffect(() => {
-    if (mounted.current) return;
+    if (animated.current) return;
     const el = pathRef.current;
     if (!el) return;
-    mounted.current = true;
+    animated.current = true;
     const len = el.getTotalLength();
-    setPathLen(len);
-    // Double rAF: first paints with full offset (hidden), second triggers transition
-    let id1: number, id2: number;
-    id1 = requestAnimationFrame(() => {
-      id2 = requestAnimationFrame(() => {
-        setDrawn(true);
+    el.setAttribute("stroke-dasharray", String(len));
+    el.setAttribute("stroke-dashoffset", String(len));
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        el.style.transition = "stroke-dashoffset 1.2s ease-out";
+        el.setAttribute("stroke-dashoffset", "0");
+        const area = areaRef.current;
+        if (area) {
+          area.style.transition = "opacity 0.4s ease";
+          area.style.opacity = "1";
+        }
       });
     });
-    return () => { cancelAnimationFrame(id1); cancelAnimationFrame(id2); };
   });
 
   return (
@@ -664,12 +667,10 @@ function ProgressChart({ rates, today }: { rates: number[]; today: number }) {
         <line key={i} x1={pad.l} y1={y} x2={W - pad.r} y2={y} stroke="var(--border2)" strokeWidth=".7" strokeDasharray="4,4" />
       ))}
       <path
+        ref={areaRef}
         d={area}
         fill="url(#areaGrad)"
-        style={{
-          opacity: drawn ? 1 : 0,
-          transition: drawn ? "opacity 0.4s ease 0.8s" : "none",
-        }}
+        style={{ opacity: 0 }}
       />
       <path
         ref={pathRef}
@@ -678,11 +679,6 @@ function ProgressChart({ rates, today }: { rates: number[]; today: number }) {
         stroke="var(--accent)"
         strokeWidth="1.8"
         strokeLinecap="round"
-        strokeDasharray={pathLen || undefined}
-        strokeDashoffset={drawn ? 0 : pathLen || undefined}
-        style={pathLen > 0 ? {
-          transition: drawn ? "stroke-dashoffset 1.2s ease-out" : "none",
-        } : undefined}
       />
       <line x1={todayX} y1={pad.t} x2={todayX} y2={pad.t + ch} stroke="var(--accent)" strokeWidth="1" strokeDasharray="3,3" opacity=".5" />
       {xLabels.map(({ x, label }) => (
