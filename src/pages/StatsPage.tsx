@@ -72,7 +72,7 @@ export default function StatsPage() {
       ds.setDate(ds.getDate() - i);
       const dk = fmtDate(ds.getFullYear(), ds.getMonth() + 1, ds.getDate());
       const rate = getGridRate(dk, grid.tasks, grid.counts);
-      if (rate === 1 && grid.tasks.length > 0) count++;
+      if (rate >= 0.01 && grid.tasks.length > 0) count++;
       else if (i > 0) break;
     }
     return count;
