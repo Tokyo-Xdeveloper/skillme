@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { loadTaskGrid, getGridRate, getGoalForDate } from "../lib/tracking";
 import { useCountUp } from "../hooks/useCountUp";
 import { APPS } from "../data/apps";
@@ -112,32 +112,46 @@ export default function StatsPage() {
     <div className="p-5 max-w-[900px] mx-auto space-y-5">
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard
+        <RingCard
           label="Overall Rate"
           value={Math.round(overallRate * 100)}
           suffix="%"
+          rate={overallRate}
           color="var(--accent)"
-          bg="rgba(37,99,235,.06)"
         />
-        <StatCard
+        <IconCard
           label="Streak"
           value={streak}
           suffix="d"
           color="var(--orange)"
-          bg="var(--orangeBg)"
+          icon={<FlameIcon streak={streak} />}
         />
-        <StatCard
+        <IconCard
           label="Active Days"
           value={activeDays}
           suffix={`/${Math.min(today, days)}`}
           color="var(--green)"
-          bg="var(--greenBg)"
+          icon={
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+          }
         />
-        <StatCard
+        <IconCard
           label="Tasks"
           value={grid.tasks.length}
           color="var(--text)"
-          bg="rgba(0,0,0,.03)"
+          icon={
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+              <rect x="9" y="3" width="6" height="4" rx="1"/>
+              <line x1="9" y1="12" x2="15" y2="12"/>
+              <line x1="9" y1="16" x2="13" y2="16"/>
+            </svg>
+          }
         />
       </div>
 
@@ -201,20 +215,78 @@ export default function StatsPage() {
 
 // === Sub-components ===
 
-function StatCard({ label, value, suffix, color, bg }: { label: string; value: number; suffix?: string; color: string; bg: string }) {
+function RingCard({ label, value, suffix, rate, color }: { label: string; value: number; suffix?: string; rate: number; color: string }) {
+  const animVal = useCountUp(value);
+  const ringRef = useRef<SVGCircleElement>(null);
+  const animated = useRef(false);
+  const C = 2 * Math.PI * 24;
+
+  useEffect(() => {
+    if (animated.current) return;
+    const el = ringRef.current;
+    if (!el) return;
+    animated.current = true;
+    el.setAttribute("stroke-dashoffset", String(C));
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        el.style.transition = "stroke-dashoffset 1s ease-out";
+        el.setAttribute("stroke-dashoffset", String(C * (1 - rate)));
+      });
+    });
+  });
+
+  return (
+    <div className="stat-card" style={{ borderTopColor: color }}>
+      <div className="stat-ring-wrap">
+        <svg width="64" height="64" viewBox="0 0 64 64">
+          <circle cx="32" cy="32" r="24" fill="none" stroke="var(--border)" strokeWidth="5" />
+          <circle
+            ref={ringRef}
+            cx="32" cy="32" r="24"
+            fill="none" stroke={color} strokeWidth="5"
+            strokeDasharray={C}
+            strokeDashoffset={C}
+            transform="rotate(-90 32 32)"
+            strokeLinecap="round"
+          />
+        </svg>
+        <div className="stat-ring-value" style={{ color }}>{animVal}{suffix ?? ""}</div>
+      </div>
+      <div className="stat-card-label">{label}</div>
+    </div>
+  );
+}
+
+function IconCard({ label, value, suffix, color, icon }: { label: string; value: number; suffix?: string; color: string; icon: React.ReactNode }) {
   const animVal = useCountUp(value);
   return (
-    <div
-      className="grid-card"
-      style={{ padding: "14px 16px", background: bg, border: "1px solid var(--border)" }}
-    >
-      <div style={{ fontSize: 9, fontWeight: 700, color: "var(--text3)", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 4 }}>
-        {label}
+    <div className="stat-card" style={{ borderTopColor: color }}>
+      <div className="stat-icon-row">
+        {icon}
+        <div style={{ fontSize: 28, fontWeight: 800, color, fontFamily: "'JetBrains Mono', monospace", letterSpacing: -1 }}>
+          {animVal}{suffix ?? ""}
+        </div>
       </div>
-      <div style={{ fontSize: 26, fontWeight: 800, color, fontFamily: "'JetBrains Mono', monospace" }}>
-        {animVal}{suffix ?? ""}
-      </div>
+      <div className="stat-card-label">{label}</div>
     </div>
+  );
+}
+
+function FlameIcon({ streak }: { streak: number }) {
+  let color = "#9ca3af";
+  let animate = false;
+  let glow = false;
+  if (streak >= 8) { color = "#ef4444"; animate = true; glow = true; }
+  else if (streak >= 4) { color = "#f97316"; animate = true; }
+  else if (streak >= 1) { color = "#eab308"; animate = true; }
+  return (
+    <svg
+      width="30" height="30" viewBox="0 0 24 24" fill={color}
+      className={animate ? "flame-anim" : ""}
+      style={glow ? { filter: "drop-shadow(0 0 4px rgba(239,68,68,.6))" } : undefined}
+    >
+      <path d="M12 23c-4.97 0-9-3.58-9-8 0-3.07 2.31-6.64 4-8 0 3 2 5 3 5.5C10.5 10 10 6 12 2c1.5 3 2.5 5.5 4 7.5 1-1 2-3.5 2-3.5 1.69 1.36 4 4.93 4 8 0 4.42-4.03 8-9 8z"/>
+    </svg>
   );
 }
 
@@ -268,6 +340,27 @@ function TaskRateRow({ task, appName, done, total, rate }: { task: GridTask; app
 }
 
 function MonthChart({ rates, today }: { rates: number[]; today: number }) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const animated = useRef(false);
+
+  useEffect(() => {
+    if (animated.current) return;
+    const svg = svgRef.current;
+    if (!svg) return;
+    animated.current = true;
+    const bars = svg.querySelectorAll(".month-bar") as NodeListOf<SVGRectElement>;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        bars.forEach((b, i) => {
+          setTimeout(() => {
+            b.style.transition = "transform 0.5s cubic-bezier(.34,1.56,.64,1)";
+            b.style.transform = "scaleY(1)";
+          }, i * 25);
+        });
+      });
+    });
+  });
+
   const W = 600;
   const H = 120;
   const pad = { t: 14, r: 10, b: 22, l: 6 };
@@ -281,7 +374,7 @@ function MonthChart({ rates, today }: { rates: number[]; today: number }) {
   const barW = cw / n;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }}>
+    <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }}>
       {/* Grid */}
       {[0, 0.5, 1].map((v, i) => (
         <line key={i} x1={pad.l} y1={gy(v)} x2={W - pad.r} y2={gy(v)} stroke="var(--border2)" strokeWidth=".7" strokeDasharray="4,4" />
@@ -307,7 +400,7 @@ function MonthChart({ rates, today }: { rates: number[]; today: number }) {
               className="month-bar"
               style={{
                 transformOrigin: `${x + w / 2}px ${gy(0)}px`,
-                animationDelay: `${d * 20}ms`,
+                transform: "scaleY(0)",
               }}
             />
             {/* X label */}
