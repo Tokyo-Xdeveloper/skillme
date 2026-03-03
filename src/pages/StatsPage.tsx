@@ -582,6 +582,28 @@ function AiReflection({ grid, taskStats, overallRate, streak, year, month, today
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [meta, setMeta] = useState("");
+  const [displayText, setDisplayText] = useState("");
+  const [typing, setTyping] = useState(false);
+  const typeRaf = useRef(0);
+
+  useEffect(() => {
+    if (!comment) { setDisplayText(""); setTyping(false); return; }
+    let i = 0;
+    setDisplayText("");
+    setTyping(true);
+    const step = () => {
+      i += 3;
+      if (i >= comment.length) {
+        setDisplayText(comment);
+        setTyping(false);
+        return;
+      }
+      setDisplayText(comment.slice(0, i));
+      typeRaf.current = requestAnimationFrame(step);
+    };
+    typeRaf.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(typeRaf.current);
+  }, [comment]);
 
   const buildPrompt = useCallback(() => {
     const slot = getSlot();
@@ -703,7 +725,7 @@ function AiReflection({ grid, taskStats, overallRate, streak, year, month, today
         <div style={{ fontSize: 13, color: "var(--red)" }}>Failed to load ({error})</div>
       ) : (
         <div className={`ai-body${loading ? " ai-loading" : ""}`}>
-          {loading ? "Loading..." : comment}
+          {loading ? "Loading..." : <>{displayText}{typing && <span className="ai-cursor" />}</>}
         </div>
       )}
       {meta && !error && <div className="ai-meta">{meta}</div>}
