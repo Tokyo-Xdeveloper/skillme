@@ -634,36 +634,44 @@ body {
 
 /* === Rich stat cards === */
 .stat-card {
-  background: var(--surface);
   backdrop-filter: blur(16px);
-  border-radius: 14px;
+  border-radius: 16px;
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
-  border-top: 3px solid var(--accent);
-  padding: 18px 16px 14px;
+  border-top: 4px solid var(--accent);
+  padding: 24px 16px 18px;
   text-align: center;
-  transition: all .2s;
+  transition: all .25s cubic-bezier(.4,0,.2,1);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
+  animation: cardIn .5s ease-out backwards;
+}
+.stat-card:nth-child(1) { animation-delay: 0s; }
+.stat-card:nth-child(2) { animation-delay: .08s; }
+.stat-card:nth-child(3) { animation-delay: .16s; }
+.stat-card:nth-child(4) { animation-delay: .24s; }
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(20px) scale(.95); }
+  to { opacity: 1; transform: none; }
 }
 .stat-card:hover {
-  box-shadow: var(--shadow2);
-  transform: translateY(-2px);
+  box-shadow: var(--shadow2), 0 0 0 1px var(--border2);
+  transform: translateY(-4px);
 }
 .stat-card-label {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--text3);
   text-transform: uppercase;
-  letter-spacing: .5px;
+  letter-spacing: .8px;
 }
 .stat-ring-wrap {
   position: relative;
-  width: 64px;
-  height: 64px;
+  width: 92px;
+  height: 92px;
 }
 .stat-ring-value {
   position: absolute;
@@ -671,7 +679,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 26px;
   font-weight: 800;
   font-family: 'JetBrains Mono', monospace;
   letter-spacing: -1px;
@@ -679,19 +687,19 @@ body {
 .stat-icon-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   justify-content: center;
-  min-height: 40px;
+  min-height: 60px;
 }
 
 /* === Flame flicker animation === */
 @keyframes flameFlicker {
   0%, 100% { transform: scaleY(1) scaleX(1) translateY(0); opacity: 1; }
-  25% { transform: scaleY(1.04) scaleX(.96) translateY(-2px); opacity: .9; }
-  50% { transform: scaleY(.97) scaleX(1.03) translateY(1px); opacity: 1; }
-  75% { transform: scaleY(1.06) scaleX(.97) translateY(-3px); opacity: .85; }
+  25% { transform: scaleY(1.06) scaleX(.94) translateY(-3px); opacity: .85; }
+  50% { transform: scaleY(.95) scaleX(1.05) translateY(1px); opacity: 1; }
+  75% { transform: scaleY(1.08) scaleX(.95) translateY(-4px); opacity: .8; }
 }
 .flame-anim {
-  animation: flameFlicker 1.5s ease-in-out infinite;
+  animation: flameFlicker 1.2s ease-in-out infinite;
   transform-origin: center bottom;
 }
