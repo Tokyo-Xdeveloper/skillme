@@ -8,6 +8,7 @@ const tabs = [
 ];
 
 const GEMINI_KEY_STORAGE = "skillme_gemini_key";
+const AI_CACHE_KEY = "skillme_ai_cache";
 
 export function getGeminiKey(): string | null {
   return localStorage.getItem(GEMINI_KEY_STORAGE);
@@ -35,7 +36,7 @@ export default function TabBar() {
 
   const deleteKey = () => {
     localStorage.removeItem(GEMINI_KEY_STORAGE);
-    localStorage.removeItem("skillme_ai_cache");
+    localStorage.removeItem(AI_CACHE_KEY);
     setKeyInput("");
     setKeyStatus("Key deleted");
   };

@@ -15,7 +15,7 @@ function daysInMonth(y: number, m: number) {
 }
 
 export default function StatsPage() {
-  const grid = loadTaskGrid();
+  const [grid] = useState(() => loadTaskGrid());
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
@@ -46,7 +46,7 @@ export default function StatsPage() {
   }, [grid, today, days, year, month]);
 
   // Sorted by rate descending
-  const ranked = [...taskStats].sort((a, b) => b.rate - a.rate);
+  const ranked = useMemo(() => [...taskStats].sort((a, b) => b.rate - a.rate), [taskStats]);
 
   // Overall daily rates for the month
   const dailyRates = useMemo(() => {
@@ -92,22 +92,23 @@ export default function StatsPage() {
   // Heatmap data (last 16 weeks)
   const heatmap = useMemo(() => {
     const weeks = 16;
-    const endDay = now.getDay();
-    const startDate = new Date(now);
+    const todayDate = new Date(year, month - 1, today);
+    const endDay = todayDate.getDay();
+    const startDate = new Date(todayDate);
     startDate.setDate(startDate.getDate() - (weeks * 7 - 1) - endDay);
     const cells: { date: string; rate: number; col: number; row: number }[] = [];
     for (let col = 0; col < weeks + 1; col++) {
       for (let row = 0; row < 7; row++) {
         const dd = new Date(startDate);
         dd.setDate(dd.getDate() + col * 7 + row);
-        if (dd > now) continue;
+        if (dd > todayDate) continue;
         const dk = fmtDate(dd.getFullYear(), dd.getMonth() + 1, dd.getDate());
         const rate = getGridRate(dk, grid.tasks, grid.counts);
         cells.push({ date: dk, rate, col, row });
       }
     }
     return { cells, weeks };
-  }, [grid, now]);
+  }, [grid, year, month, today]);
 
   const [taskRateRef, taskRateVisible] = useInView<HTMLDivElement>();
   const [chartRef, chartVisible] = useInView<HTMLDivElement>();
@@ -245,7 +246,7 @@ function RingCard({ label, value, suffix, rate, color, bg }: { label: string; va
         el.setAttribute("stroke-dashoffset", String(C * (1 - rate)));
       });
     });
-  });
+  }, []);
 
   return (
     <div className="stat-card" style={{ borderTopColor: color, background: bg }}>
@@ -317,10 +318,11 @@ function TaskRateRow({ task, appName, done, total, rate, visible, index }: { tas
     const el = barRef.current;
     if (!el) return;
     barDone.current = true;
-    setTimeout(() => {
+    const tid = setTimeout(() => {
       el.style.transition = "width 0.6s cubic-bezier(.34,1.56,.64,1)";
       el.style.width = `${pct}%`;
     }, index * 80);
+    return () => clearTimeout(tid);
   }, [visible, pct, index]);
 
   return (
@@ -377,16 +379,18 @@ function MonthChart({ rates, today, visible }: { rates: number[]; today: number;
     if (!svg) return;
     animated.current = true;
     const bars = svg.querySelectorAll(".month-bar") as NodeListOf<SVGRectElement>;
+    const tids: number[] = [];
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         bars.forEach((b, i) => {
-          setTimeout(() => {
+          tids.push(setTimeout(() => {
             b.style.transition = "transform 0.5s cubic-bezier(.34,1.56,.64,1)";
             b.style.transform = "scaleY(1)";
-          }, i * 25);
+          }, i * 25));
         });
       });
     });
+    return () => tids.forEach(clearTimeout);
   }, [visible]);
 
   const W = 600;
@@ -427,7 +431,7 @@ function MonthChart({ rates, today, visible }: { rates: number[]; today: number;
               opacity={isPast ? (r > 0 ? 0.7 : 0.15) : 0.1}
               className="month-bar"
               style={{
-                transformBox: "fill-box" as never,
+                transformBox: "fill-box" as React.CSSProperties["transformBox"],
                 transformOrigin: "center bottom",
                 transform: "scaleY(0)",
               }}
@@ -650,7 +654,7 @@ function AiReflection({ grid, taskStats, overallRate, streak, year, month, today
     prompt += `残り: ${todayTotal - todayDone}タスク\n\n`;
     prompt += "今月→今週→今日の順番で自然に流れるように、4〜5文で書いてください。セクション分けや見出しは不要です。絵文字は使わず、温かみのある自然な日本語で。";
     return prompt;
-  }, [grid, taskStats, overallRate, streak, year, month, today, days]);
+  }, [grid, overallRate, streak, year, month, today, days]);
 
   useEffect(() => {
     const key = getGeminiKey();
