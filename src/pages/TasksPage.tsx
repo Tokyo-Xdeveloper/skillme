@@ -538,16 +538,25 @@ function ProgressChart({ rates, today }: { rates: number[]; today: number }) {
   // Stroke animation: measure path length and animate stroke-dashoffset
   const pathRef = useRef<SVGPathElement>(null);
   const [pathLen, setPathLen] = useState(0);
-  const [animate, setAnimate] = useState(false);
+  const [drawn, setDrawn] = useState(false);
+  const mounted = useRef(false);
 
   useEffect(() => {
-    if (pathRef.current) {
-      const len = pathRef.current.getTotalLength();
-      setPathLen(len);
-      // Force reflow to apply initial dashoffset, then trigger animation
-      requestAnimationFrame(() => setAnimate(true));
-    }
-  }, [rates]);
+    if (mounted.current) return;
+    const el = pathRef.current;
+    if (!el) return;
+    mounted.current = true;
+    const len = el.getTotalLength();
+    setPathLen(len);
+    // Double rAF: first paints with full offset (hidden), second triggers transition
+    let id1: number, id2: number;
+    id1 = requestAnimationFrame(() => {
+      id2 = requestAnimationFrame(() => {
+        setDrawn(true);
+      });
+    });
+    return () => { cancelAnimationFrame(id1); cancelAnimationFrame(id2); };
+  });
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }}>
@@ -564,8 +573,8 @@ function ProgressChart({ rates, today }: { rates: number[]; today: number }) {
         d={area}
         fill="url(#areaGrad)"
         style={{
-          opacity: animate ? 1 : 0,
-          transition: "opacity 0.4s ease 0.8s",
+          opacity: drawn ? 1 : 0,
+          transition: drawn ? "opacity 0.4s ease 0.8s" : "none",
         }}
       />
       <path
@@ -575,10 +584,10 @@ function ProgressChart({ rates, today }: { rates: number[]; today: number }) {
         stroke="var(--accent)"
         strokeWidth="1.8"
         strokeLinecap="round"
+        strokeDasharray={pathLen || undefined}
+        strokeDashoffset={drawn ? 0 : pathLen || undefined}
         style={pathLen > 0 ? {
-          strokeDasharray: pathLen,
-          strokeDashoffset: animate ? 0 : pathLen,
-          transition: "stroke-dashoffset 1.2s ease-out",
+          transition: drawn ? "stroke-dashoffset 1.2s ease-out" : "none",
         } : undefined}
       />
       <line x1={todayX} y1={pad.t} x2={todayX} y2={pad.t + ch} stroke="var(--accent)" strokeWidth="1" strokeDasharray="3,3" opacity=".5" />
