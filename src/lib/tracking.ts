@@ -210,15 +210,19 @@ export function adjustGridCount(date: string, taskId: string, delta: number): Ta
   return data;
 }
 
-/** Get the completion rate for a day (tasks where count >= goal / total tasks) */
+/** Get the completion rate for a day (tasks with goal>0 where count >= goal / active tasks) */
 export function getGridRate(date: string, tasks: GridTask[], counts: Record<string, Record<string, number>>): number {
   if (tasks.length === 0) return 0;
   const dayCounts = counts[date] || {};
-  const done = tasks.filter((t) => {
+  let active = 0;
+  let done = 0;
+  for (const t of tasks) {
     const g = getGoalForDate(t, date);
-    return g > 0 && (dayCounts[t.id] || 0) >= g;
-  }).length;
-  return done / tasks.length;
+    if (g <= 0) continue;
+    active++;
+    if ((dayCounts[t.id] || 0) >= g) done++;
+  }
+  return active > 0 ? done / active : 0;
 }
 
 /** Compute streak (consecutive days with at least 1 activity) */
