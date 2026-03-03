@@ -501,6 +501,79 @@ body {
 .grid-body tr.drop-above { box-shadow: inset 0 2px 0 0 var(--accent); }
 .grid-body tr.drop-below { box-shadow: inset 0 -2px 0 0 var(--accent); }
 
+/* === Schedule pill toggle === */
+.schedule-pills {
+  display: flex;
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.schedule-pill {
+  flex: 1;
+  padding: 8px 0;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all .15s;
+  background: var(--surfaceSolid);
+  color: var(--text3);
+}
+.schedule-pill.active {
+  background: var(--accent);
+  color: white;
+}
+.schedule-pill:not(.active):hover {
+  background: var(--accentLight);
+  color: var(--accent);
+}
+
+/* === Weekly goals table === */
+.weekly-goal-table {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.weekly-goal-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.weekly-goal-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+.weekly-goal-input {
+  width: 100%;
+  padding: 8px 4px;
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 700;
+  background: var(--surfaceSolid);
+  color: var(--text);
+  outline: none;
+  text-align: center;
+  transition: border-color .2s;
+}
+.weekly-goal-input:focus {
+  border-color: var(--accent);
+}
+
+/* === Disabled button === */
+.add-modal-actions .btn-add:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
 /* === Bar chart grow animation === */
 .month-bar {
   animation: barGrow 0.6s ease-out forwards;

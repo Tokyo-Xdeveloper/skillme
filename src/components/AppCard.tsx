@@ -8,9 +8,17 @@ interface AppCardProps {
 export default function AppCard({ app }: AppCardProps) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-      {/* サムネイル（プレースホルダー） */}
-      <div className="h-40 bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center">
-        <span className="text-4xl">📚</span>
+      {/* サムネイル */}
+      <div className="h-40 bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center overflow-hidden">
+        {app.thumbnail ? (
+          <img
+            src={app.thumbnail}
+            alt={app.name}
+            className="w-full h-full object-cover object-top"
+          />
+        ) : (
+          <span className="text-4xl">📚</span>
+        )}
       </div>
 
       <div className="p-4">

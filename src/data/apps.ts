@@ -7,6 +7,7 @@ export const APPS: AppDefinition[] = [
     description: "英単語・英語表現を効率的に学習できるアプリ",
     url: "https://hiroaki-sato1117.github.io/english-expression/",
     icon: "",
+    thumbnail: "/thumb-vocab-master.png",
     tags: ["英語", "ボキャブラリー"],
   },
   {
@@ -15,6 +16,7 @@ export const APPS: AppDefinition[] = [
     description: "ポーカーのハンドレンジをスペースドリピティションで習得",
     url: "https://hiroaki-sato1117.github.io/range-master/",
     icon: "",
+    thumbnail: "/thumb-range-master.png",
     tags: ["ポーカー", "GTO"],
   },
 ];

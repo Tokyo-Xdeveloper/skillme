@@ -6,10 +6,11 @@ import {
   updateGridTaskGoal,
   reorderGridTasks,
   getGridRate,
+  getGoalForDate,
 } from "../lib/tracking";
 import { useCountUp } from "../hooks/useCountUp";
 import { APPS } from "../data/apps";
-import type { TaskGridData } from "../types/app";
+import type { TaskGridData, WeeklyGoals } from "../types/app";
 
 const DN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const TASK_PRESETS = [
@@ -31,8 +32,13 @@ export default function TasksPage() {
   const [addApp, setAddApp] = useState(APPS[0]?.id ?? "");
   const [addPreset, setAddPreset] = useState(0);
   const [addGoal, setAddGoal] = useState(TASK_PRESETS[0].defaultGoal);
+  const [addSchedule, setAddSchedule] = useState<"daily" | "weekly">("daily");
+  const defaultWeekly = (): WeeklyGoals => ({ mon: 3, tue: 3, wed: 3, thu: 3, fri: 3, sat: 0, sun: 0 });
+  const [addWeekly, setAddWeekly] = useState<WeeklyGoals>(defaultWeekly);
   const [editGoalId, setEditGoalId] = useState<string | null>(null);
   const [editGoalVal, setEditGoalVal] = useState(0);
+  const [editSchedule, setEditSchedule] = useState<"daily" | "weekly">("daily");
+  const [editWeekly, setEditWeekly] = useState<WeeklyGoals>(defaultWeekly);
 
   // Drag & drop state
   const [dragIdx, setDragIdx] = useState<number | null>(null);
@@ -84,20 +90,27 @@ export default function TasksPage() {
   const handleAdd = useCallback(() => {
     if (!addApp) return;
     const preset = TASK_PRESETS[addPreset];
-    setGrid(addGridTask(addApp, preset.label, addGoal, preset.eventType));
+    if (addSchedule === "weekly") {
+      setGrid(addGridTask(addApp, preset.label, 0, preset.eventType, addWeekly));
+    } else {
+      setGrid(addGridTask(addApp, preset.label, addGoal, preset.eventType));
+    }
     setShowAdd(false);
-  }, [addApp, addPreset, addGoal]);
+  }, [addApp, addPreset, addGoal, addSchedule, addWeekly]);
 
   const handleRemove = useCallback((taskId: string) => {
     setGrid(removeGridTask(taskId));
   }, []);
 
   const handleGoalSave = useCallback(() => {
-    if (editGoalId && editGoalVal > 0) {
+    if (!editGoalId) return;
+    if (editSchedule === "weekly") {
+      setGrid(updateGridTaskGoal(editGoalId, 0, editWeekly));
+    } else if (editGoalVal > 0) {
       setGrid(updateGridTaskGoal(editGoalId, editGoalVal));
     }
     setEditGoalId(null);
-  }, [editGoalId, editGoalVal]);
+  }, [editGoalId, editGoalVal, editSchedule, editWeekly]);
 
   // Drag & drop handlers
   const handleDragStart = useCallback((e: React.DragEvent, idx: number) => {
@@ -150,7 +163,10 @@ export default function TasksPage() {
   // today stats
   const todayKey = fmtDate(year, month, today);
   const todayDone = grid.tasks.filter(
-    (t) => (grid.counts[todayKey]?.[t.id] || 0) >= t.goal,
+    (t) => {
+      const g = getGoalForDate(t, todayKey);
+      return g > 0 && (grid.counts[todayKey]?.[t.id] || 0) >= g;
+    },
   ).length;
   const todayTotal = grid.tasks.length;
   const todayPct =
@@ -243,9 +259,16 @@ export default function TasksPage() {
                           onClick={() => {
                             setEditGoalId(task.id);
                             setEditGoalVal(task.goal);
+                            if (task.weeklyGoals) {
+                              setEditSchedule("weekly");
+                              setEditWeekly({ ...task.weeklyGoals });
+                            } else {
+                              setEditSchedule("daily");
+                              setEditWeekly(defaultWeekly());
+                            }
                           }}
                         >
-                          /{task.goal}
+                          {task.weeklyGoals ? "/W" : `/${task.goal}`}
                         </span>
                         <button
                           className="grid-del-btn"
@@ -259,7 +282,8 @@ export default function TasksPage() {
                       const d = i + 1;
                       const dk = fmtDate(year, month, d);
                       const count = grid.counts[dk]?.[task.id] || 0;
-                      const met = count >= task.goal && task.goal > 0;
+                      const dayGoal = getGoalForDate(task, dk);
+                      const met = dayGoal > 0 && count >= dayGoal;
                       const isT = d === today;
                       return (
                         <td
@@ -284,6 +308,8 @@ export default function TasksPage() {
                     onClick={() => {
                       setAddPreset(0);
                       setAddGoal(TASK_PRESETS[0].defaultGoal);
+                      setAddSchedule("daily");
+                      setAddWeekly(defaultWeekly());
                       setShowAdd(true);
                     }}
                   >
@@ -368,20 +394,54 @@ export default function TasksPage() {
                 </option>
               ))}
             </select>
-            <label className="add-modal-label">1日の目標数</label>
-            <input
-              type="number"
-              min={1}
-              max={99}
-              value={addGoal}
-              onChange={(e) => setAddGoal(Math.max(1, Number(e.target.value)))}
-              className="add-modal-input"
-            />
+            <label className="add-modal-label">スケジュール</label>
+            <div className="schedule-pills">
+              <button
+                className={`schedule-pill ${addSchedule === "daily" ? "active" : ""}`}
+                onClick={() => setAddSchedule("daily")}
+              >
+                Daily
+              </button>
+              <button
+                className={`schedule-pill ${addSchedule === "weekly" ? "active" : ""}`}
+                onClick={() => setAddSchedule("weekly")}
+              >
+                Weekly
+              </button>
+            </div>
+
+            {addSchedule === "daily" ? (
+              <>
+                <label className="add-modal-label">1日の目標数</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={99}
+                  value={addGoal}
+                  onChange={(e) => setAddGoal(Math.max(1, Number(e.target.value)))}
+                  className="add-modal-input"
+                />
+              </>
+            ) : (
+              <>
+                <label className="add-modal-label">曜日別の目標数</label>
+                <WeeklyGoalTable goals={addWeekly} onChange={setAddWeekly} />
+              </>
+            )}
+
             <div className="add-modal-actions">
               <button className="btn-cancel" onClick={() => setShowAdd(false)}>
                 キャンセル
               </button>
-              <button className="btn-add" onClick={handleAdd}>
+              <button
+                className="btn-add"
+                onClick={handleAdd}
+                disabled={
+                  addSchedule === "daily"
+                    ? addGoal < 1
+                    : !Object.values(addWeekly).some((v) => v >= 1)
+                }
+              >
                 追加
               </button>
             </div>
@@ -397,18 +457,44 @@ export default function TasksPage() {
         >
           <div className="add-modal" onClick={(e) => e.stopPropagation()}>
             <h3>目標を変更</h3>
-            <label className="add-modal-label">1日の目標数</label>
-            <input
-              type="number"
-              min={1}
-              max={99}
-              value={editGoalVal}
-              onChange={(e) =>
-                setEditGoalVal(Math.max(1, Number(e.target.value)))
-              }
-              className="add-modal-input"
-              autoFocus
-            />
+            <label className="add-modal-label">スケジュール</label>
+            <div className="schedule-pills">
+              <button
+                className={`schedule-pill ${editSchedule === "daily" ? "active" : ""}`}
+                onClick={() => setEditSchedule("daily")}
+              >
+                Daily
+              </button>
+              <button
+                className={`schedule-pill ${editSchedule === "weekly" ? "active" : ""}`}
+                onClick={() => setEditSchedule("weekly")}
+              >
+                Weekly
+              </button>
+            </div>
+
+            {editSchedule === "daily" ? (
+              <>
+                <label className="add-modal-label">1日の目標数</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={99}
+                  value={editGoalVal}
+                  onChange={(e) =>
+                    setEditGoalVal(Math.max(1, Number(e.target.value)))
+                  }
+                  className="add-modal-input"
+                  autoFocus
+                />
+              </>
+            ) : (
+              <>
+                <label className="add-modal-label">曜日別の目標数</label>
+                <WeeklyGoalTable goals={editWeekly} onChange={setEditWeekly} />
+              </>
+            )}
+
             <div className="add-modal-actions">
               <button
                 className="btn-cancel"
@@ -416,7 +502,15 @@ export default function TasksPage() {
               >
                 キャンセル
               </button>
-              <button className="btn-add" onClick={handleGoalSave}>
+              <button
+                className="btn-add"
+                onClick={handleGoalSave}
+                disabled={
+                  editSchedule === "daily"
+                    ? editGoalVal < 1
+                    : !Object.values(editWeekly).some((v) => v >= 1)
+                }
+              >
                 保存
               </button>
             </div>
@@ -597,5 +691,35 @@ function ProgressChart({ rates, today }: { rates: number[]; today: number }) {
       <text x={pad.l} y={gy(1) - 3} textAnchor="start" fill="var(--text4)" fontFamily="'JetBrains Mono', monospace" fontSize="7">100%</text>
       <text x={pad.l} y={gy(0) + 8} textAnchor="start" fill="var(--text4)" fontFamily="'JetBrains Mono', monospace" fontSize="7">0%</text>
     </svg>
+  );
+}
+
+const WEEKDAY_KEYS: (keyof WeeklyGoals)[] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function WeeklyGoalTable({ goals, onChange }: { goals: WeeklyGoals; onChange: (g: WeeklyGoals) => void }) {
+  const update = (key: keyof WeeklyGoals, val: number) => {
+    onChange({ ...goals, [key]: Math.max(0, val) });
+  };
+
+  return (
+    <div className="weekly-goal-table">
+      {WEEKDAY_KEYS.map((key, i) => (
+        <div key={key} className="weekly-goal-cell">
+          <div className="weekly-goal-label">{WEEKDAY_LABELS[i]}</div>
+          <input
+            type="number"
+            min={0}
+            max={99}
+            value={goals[key]}
+            onChange={(e) => update(key, Number(e.target.value))}
+            className="weekly-goal-input"
+          />
+        </div>
+      ))}
+      <div style={{ gridColumn: "1 / -1", fontSize: 10, color: "var(--text4)", marginTop: 4 }}>
+        ※ 0 = その日はゴールなし
+      </div>
+    </div>
   );
 }

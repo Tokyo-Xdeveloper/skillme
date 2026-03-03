@@ -4,6 +4,7 @@ export interface AppDefinition {
   description: string;
   url: string;
   icon: string;
+  thumbnail?: string;
   tags: string[];
 }
 
@@ -59,11 +60,17 @@ export interface AppTaskCache {
 
 // --- Task Grid (Daily-Tracker style) ---
 
+export interface WeeklyGoals {
+  mon: number; tue: number; wed: number; thu: number;
+  fri: number; sat: number; sun: number;
+}
+
 export interface GridTask {
   id: string;
   appId: string;
   label: string;          // "New", "Review", etc.
-  goal: number;           // daily target count
+  goal: number;           // daily target count (used when weeklyGoals is undefined)
+  weeklyGoals?: WeeklyGoals; // per-weekday goals; undefined = Daily mode
   eventType: string;      // "task:activation" | "task:review"
 }
 

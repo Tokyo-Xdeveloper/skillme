@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { loadTaskGrid, getGridRate } from "../lib/tracking";
+import { loadTaskGrid, getGridRate, getGoalForDate } from "../lib/tracking";
 import { useCountUp } from "../hooks/useCountUp";
 import { APPS } from "../data/apps";
 import type { GridTask } from "../types/app";
@@ -27,8 +27,10 @@ export default function StatsPage() {
       let total = 0;
       for (let d = 1; d <= Math.min(today, days); d++) {
         const dk = fmtDate(year, month, d);
+        const g = getGoalForDate(task, dk);
+        if (g <= 0) continue;
         total++;
-        if ((grid.counts[dk]?.[task.id] || 0) >= task.goal) done++;
+        if ((grid.counts[dk]?.[task.id] || 0) >= g) done++;
       }
       const app = APPS.find((a) => a.id === task.appId);
       return {

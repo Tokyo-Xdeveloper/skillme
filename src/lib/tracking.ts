@@ -1,10 +1,19 @@
-import type { DailyRecord, AppSnapshot, AppTaskCache, TrackingData, TaskGridData, GridTask } from "../types/app";
+import type { DailyRecord, AppSnapshot, AppTaskCache, TrackingData, TaskGridData, GridTask, WeeklyGoals } from "../types/app";
 
 const STORAGE_KEY = "skillme-tracking";
 
 function today(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+const DOW_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
+
+/** Resolve goal for a specific date, considering weeklyGoals */
+export function getGoalForDate(task: GridTask, date: string): number {
+  if (!task.weeklyGoals) return task.goal;
+  const dow = new Date(date + "T00:00:00").getDay(); // 0=Sun
+  return task.weeklyGoals[DOW_KEYS[dow]];
 }
 
 export function loadTracking(): TrackingData {
@@ -132,9 +141,11 @@ export function saveTaskGrid(data: TaskGridData): void {
   localStorage.setItem(GRID_KEY, JSON.stringify(data));
 }
 
-export function addGridTask(appId: string, label: string, goal: number, eventType: string): TaskGridData {
+export function addGridTask(appId: string, label: string, goal: number, eventType: string, weeklyGoals?: WeeklyGoals): TaskGridData {
   const data = loadTaskGrid();
-  data.tasks.push({ id: `task-${Date.now()}`, appId, label, goal, eventType });
+  const task: GridTask = { id: `task-${Date.now()}`, appId, label, goal, eventType };
+  if (weeklyGoals) task.weeklyGoals = weeklyGoals;
+  data.tasks.push(task);
   saveTaskGrid(data);
   return data;
 }
@@ -149,10 +160,17 @@ export function removeGridTask(taskId: string): TaskGridData {
   return data;
 }
 
-export function updateGridTaskGoal(taskId: string, goal: number): TaskGridData {
+export function updateGridTaskGoal(taskId: string, goal: number, weeklyGoals?: WeeklyGoals): TaskGridData {
   const data = loadTaskGrid();
   const task = data.tasks.find((t) => t.id === taskId);
-  if (task) task.goal = goal;
+  if (task) {
+    task.goal = goal;
+    if (weeklyGoals) {
+      task.weeklyGoals = weeklyGoals;
+    } else {
+      delete task.weeklyGoals;
+    }
+  }
   saveTaskGrid(data);
   return data;
 }
@@ -196,7 +214,10 @@ export function adjustGridCount(date: string, taskId: string, delta: number): Ta
 export function getGridRate(date: string, tasks: GridTask[], counts: Record<string, Record<string, number>>): number {
   if (tasks.length === 0) return 0;
   const dayCounts = counts[date] || {};
-  const done = tasks.filter((t) => (dayCounts[t.id] || 0) >= t.goal).length;
+  const done = tasks.filter((t) => {
+    const g = getGoalForDate(t, date);
+    return g > 0 && (dayCounts[t.id] || 0) >= g;
+  }).length;
   return done / tasks.length;
 }
 
